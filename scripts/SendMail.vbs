@@ -145,10 +145,17 @@ Sub WriteEventLog(strMessage)
   Dim strError
   
   strError = strMessage & VbCrLf & VbCrLf &_
-      "Number (dec) : " & Err.Number & VbCrLf &_
-      "Number (hex) : 0x" & Hex(Err.Number) & VbCrLf &_
-      "Description  : " & Err.Description & VbCrLf &_
-      "Source       : " & Err.Source
+	"Laufzeit Informationen:" & VbCrLf &_
+	"Attachment      : " & attachment & VbCrLf &_
+	"Recipient       : " & recipient & VbCrLf &_
+	"Attachment_name : " & attachment_name & VbCrLf &_
+	"Attachment_type : " & attachment_type & VbCrLf &_
+	"Attachment_dir  : " & attachment_dir & VbCrLf & VbCrLf &_
+	"Windows Error Info:" & VbCrLf &_
+	"Number (dec) : " & Err.Number & VbCrLf &_
+	"Number (hex) : 0x" & Hex(Err.Number) & VbCrLf &_
+	"Description  : " & Err.Description & VbCrLf &_
+	"Source       : " & Err.Source
   Err.Clear
   
   WshShell.Run objEnv("SYSTEMROOT") & EVENTCREATE & " /L Application  /T ERROR /SO " & Chr(34) & "PDF-Drucker (Fehler)" & Chr(34) &_

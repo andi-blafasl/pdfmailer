@@ -14,7 +14,8 @@ Const AppTitle = "PDFMailer - Preprocessor"
 Const ForReading = 1, ForAppending = 8
 Const EVENTCREATE = "\System32\eventcreate.exe"
 
-Dim objArgs, objFSO, ObjFile, f, pages, i, objEnv, WshShell, TempFileName, SpoolFileName, SpoolFileDir, SpoolFile, DocTitle, UserName, fext
+Dim objArgs, objFSO, ObjFile, f, pages, i, objEnv, WshShell, fext
+Dim TempFileName, SpoolFileDir, SessionID, WinStation, UserName, ClientComputer, SpoolFileName, PrinterName, JobId, JobCounter, DocTitle, SpoolFile
 Set objFSO = CreateObject("Scripting.FileSystemObject")
 Set WshShell = CreateObject("WScript.Shell")
 Set objEnv = WshShell.Environment("Process")
@@ -34,9 +35,15 @@ If Err.Number <> 0 then
 End If
 SpoolFileDir = objFSO.GetParentFolderName(objFile)
 
-SpoolFileName = ReadIni( objArgs(0), "1", "SpoolFileName" )
-DocTitle = ReadIni( objArgs(0), "1", "DocumentTitle" )
+SessionId = ReadIni( objArgs(0), "1", "SessionID" )
+WinStation = ReadIni( objArgs(0), "1", "WinStation" )
 UserName = ReadIni( objArgs(0), "1", "UserName" )
+ClientComputer = ReadIni( objArgs(0), "1", "ClientComputer" )
+SpoolFileName = ReadIni( objArgs(0), "1", "SpoolFileName" )
+PrinterName = ReadIni( objArgs(0), "1", "PrinterName" )
+JobId = ReadIni( objArgs(0), "1", "JobId" )
+JobCounter = ReadIni( objArgs(0), "1", "JobCounter" )
+DocTitle = ReadIni( objArgs(0), "1", "DocumentTitle" )
 
 SpoolFile = SpoolFileDir & "\" & SpoolFileName
 
@@ -57,19 +64,19 @@ Else
         End If
 	f.writeline "  [/Title (" & DocTitle & ") /Page " & 1 & " /View [/XYZ null null 1] /Count " & pages & " /OUT pdfmark"
 	If Err.Number <> 0 then
-		WriteEventLog("Fehler beim schreiben in " & SpoolFile & "!")
+		WriteEventLog("Fehler beim schreiben der PDFMark Übersicht in " & SpoolFile & "!")
                 WScript.Quit(1)
         End If
 	For i=1 to pages
 		f.writeline "[/Page " & i & " /View [/XYZ null null 1] /Title (Seite " & i & ") /OUT pdfmark"
 		If Err.Number <> 0 then
-			WriteEventLog("Fehler beim schreiben in " & SpoolFile & "!")
+			WriteEventLog("Fehler beim schreiben der PDFMark für Seite " & i & " in " & SpoolFile & "!")
 			WScript.Quit(1)
 		End If
 	Next
 	f.WriteLine "%%EOF"
 	If Err.Number <> 0 then
-		WriteEventLog("Fehler beim schreiben in " & SpoolFile & "!")
+		WriteEventLog("Fehler beim schreiben von EOF in " & SpoolFile & "!")
                 WScript.Quit(1)
         End If
 	f.Close
@@ -82,10 +89,23 @@ Sub WriteEventLog(strMessage)
   Dim strError
   
   strError = strMessage & VbCrLf & VbCrLf &_
-      "Number (dec) : " & Err.Number & VbCrLf &_
-      "Number (hex) : 0x" & Hex(Err.Number) & VbCrLf &_
-      "Description  : " & Err.Description & VbCrLf &_
-      "Source       : " & Err.Source
+	"Laufzeit Informationen" & VbCrLf &_
+	"TempFileName  : " & TempFileName & VbCrLf &_
+	"SessionId     : " & SessionID & VbCrLf &_
+	"WinStation    : " & WinStation & VbCrLf &_
+	"UserName      : " & UserName & VbCrLf &_
+	"ClientComputer: " & ClientComputer & VbCrLf &_
+	"SpoolFileName : " & SpoolFileName & VbCrLf &_
+	"SpoolFileDir  : " & SpoolFileDir & VbCrLf &_
+	"PrinterName   : " & PrinterName & VbCrLf &_
+	"JobId         : " & JobId & VbCrLf &_
+	"JobCounter    : " & JobCounter & VbCrLf &_
+	"DocTitle      : " & DocumentTitle & VbCrLf & VbCrLf &_
+	"Windows Error Info:" & VbCrLf &_
+	"Number (dec) : " & Err.Number & VbCrLf &_
+	"Number (hex) : 0x" & Hex(Err.Number) & VbCrLf &_
+	"Description  : " & Err.Description & VbCrLf &_
+	"Source       : " & Err.Source
   Err.Clear
   
   WshShell.Run objEnv("SYSTEMROOT") & EVENTCREATE & " /L Application  /T ERROR /SO " & Chr(34) & "PDF-Drucker (Fehler)" & Chr(34) &_
