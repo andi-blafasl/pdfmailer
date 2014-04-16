@@ -15,7 +15,7 @@ Const ForReading = 1, ForAppending = 8
 Const EVENTCREATE = "\System32\eventcreate.exe"
 
 Dim objArgs, objFSO, ObjFile, f, pages, i, objEnv, WshShell, fext
-Dim TempFileName, SpoolFileDir, SessionID, WinStation, UserName, ClientComputer, SpoolFileName, PrinterName, JobId, JobCounter, DocTitle, SpoolFile
+Dim TempFileName, SpoolFileDir, SessionID, WinStation, UserName, ClientComputer, SpoolFileName, PrinterName, JobId, JobCounter, DocTitle, SpoolFile, MtdFileSplit, MtdFile, PageBlanked
 Set objFSO = CreateObject("Scripting.FileSystemObject")
 Set WshShell = CreateObject("WScript.Shell")
 Set objEnv = WshShell.Environment("Process")
@@ -46,8 +46,17 @@ JobCounter = ReadIni( objArgs(0), "1", "JobCounter" )
 DocTitle = ReadIni( objArgs(0), "1", "DocumentTitle" )
 
 SpoolFile = SpoolFileDir & "\" & SpoolFileName
+MtdFileSplit = Split(SpoolFileName, ".")
+MtdFile = SpoolFileDir & "\" & MtdFileSplit(0) & ".mtd"
 
 fext = Split(DocTitle, ".")
+if fext(UBound(fext)) = "pdf" then
+  PageBlanked = "yes"
+else
+  PageBlanked = "no"
+End If
+
+WriteLogFile("start")
 
 If fext(UBound(fext)) = "pdf" Then
 	objFSO.CopyFile "C:\\Program Files (x86)\\PDFMailer\\blank.ps", SpoolFile, true
@@ -56,31 +65,34 @@ If fext(UBound(fext)) = "pdf" Then
                 WScript.Quit(1)
         End If
 Else
-	pages = GetCountOfPagesFromPostscriptfile(SpoolFile)
-	Set f = objFSO.OpenTextFile(SpoolFile, ForAppending, True)
+        pages = GetCountOfPagesFromPostscriptfile(SpoolFile)
+	Set f = objFSO.OpenTextFile(MtdFile, ForAppending, True)
 	If Err.Number <> 0 then
 		WriteEventLog(SpoolFile & " konnte nicht geöffnet werden!")
                 WScript.Quit(1)
         End If
-	f.writeline "  [/Title (" & DocTitle & ") /Page " & 1 & " /View [/XYZ null null 1] /Count " & pages & " /OUT pdfmark"
+        f.writeline ""
+	f.writeline "[/Title (" & DocTitle & ") /Page " & 1 & " /View [/XYZ null null 1] /Count " & pages & " /OUT pdfmark"
 	If Err.Number <> 0 then
-		WriteEventLog("Fehler beim schreiben der PDFMark Übersicht in " & SpoolFile & "!")
+		WriteEventLog("Fehler beim schreiben der Bookmark Übersicht in " & SpoolFile & " !")
                 WScript.Quit(1)
         End If
 	For i=1 to pages
 		f.writeline "[/Page " & i & " /View [/XYZ null null 1] /Title (Seite " & i & ") /OUT pdfmark"
 		If Err.Number <> 0 then
-			WriteEventLog("Fehler beim schreiben der PDFMark für Seite " & i & " in " & SpoolFile & "!")
+			WriteEventLog("Fehler beim schreiben der Bookmark für Seite " & i & " in " & SpoolFile & " !")
 			WScript.Quit(1)
 		End If
 	Next
 	f.WriteLine "%%EOF"
 	If Err.Number <> 0 then
-		WriteEventLog("Fehler beim schreiben von EOF in " & SpoolFile & "!")
+		WriteEventLog("Fehler beim schreiben von EOF nach Bookmark in " & SpoolFile & "!")
                 WScript.Quit(1)
         End If
 	f.Close
 End If
+
+WriteLogFile("done")
 
 '******************************************************************************
 
@@ -100,7 +112,8 @@ Sub WriteEventLog(strMessage)
 	"PrinterName   : " & PrinterName & VbCrLf &_
 	"JobId         : " & JobId & VbCrLf &_
 	"JobCounter    : " & JobCounter & VbCrLf &_
-	"DocTitle      : " & DocumentTitle & VbCrLf & VbCrLf &_
+	"DocTitle      : " & DocTitle & VbCrLf &_
+	"MtdFile       : " & DocTitle & VbCrLf & VbCrLf &_
 	"Windows Error Info:" & VbCrLf &_
 	"Number (dec) : " & Err.Number & VbCrLf &_
 	"Number (hex) : 0x" & Hex(Err.Number) & VbCrLf &_
@@ -113,6 +126,46 @@ Sub WriteEventLog(strMessage)
     		strError &_
     		Chr(34),0,True
 
+End Sub
+
+Sub WriteLogFile(strMsgType)
+  'Write Status message to logfile
+  Dim objFSOLog, LogFile, f, MsgText
+  
+  strMsgType = lcase(strMsgType)
+  LogFile = "d:\temp\PDFMailer.log"
+  
+  Set objFSOLog = CreateObject("Scripting.FileSystemObject")
+  Set f = objFSOLog.OpenTextFile(LogFile, ForAppending, True)
+  If Err.Number <> 0 then
+    WriteEventLog("LogFile " & LogFile & " konnte nicht geöffnet werden!")
+    Exit Sub
+  End If
+  
+  Select Case strMsgType
+  	Case "start"
+  		MsgText = Date & " - " & Time & AppTitle & " Start --------------" & vbCrLf &_
+  		              "                        TempFileName: " & Chr(34) & TempFileName & Chr(34) &_
+  		                                     " PageBlanked: " & Chr(34) & PageBlanked & Chr(34) &_
+  		                                     " UserName: " & Chr(34) & UserName & Chr(34) &_
+  		                                     " ClientComputer: " & Chr(34) & ClientComputer & Chr(34) &_
+  		                                     " PrinterName: " & Chr(34) & PrinterName & Chr(34) &_
+  		                                     " DocTitle: " & Chr(34) & DocTitle & Chr(34)
+  	Case "done"
+  	        MsgText = Date & " - " & Time & AppTitle & " Done ---------------" & vbCrLf
+  end select
+  
+  f.writeline MsgText
+  If Err.Number <> 0 then
+    WriteEventLog("Fehler beim schreiben in das LogFile " & LogFile & " !")
+    f.Close
+    objFSOLog = nothing
+    Exit Sub
+  End If
+  
+  f.Close
+  set objFSOLog = nothing
+  
 End Sub
 
 Private Function GetCountOfPagesFromPostscriptfile(PostscriptFile)

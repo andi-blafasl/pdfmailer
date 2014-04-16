@@ -12,6 +12,7 @@ On Error Resume Next
 Dim Exit_Code
 Exit_Code=0
 Const AppTitle = "PDFMailer - SMTP Send Mail"
+Const ForReading = 1, ForAppending = 8
 Const EVENTCREATE = "\System32\eventcreate.exe"
 
 Dim objEnv, WshShell
@@ -87,6 +88,8 @@ mail_dsn=cdoDSNDefault 'Delivery Status Notification, see CDO-Object Constants a
 
 '##### DO NOT CHANGE ANYTHING BELOW HERE! #####
 
+WriteLogFile("start")
+
 Dim objMsg, strBody 
 set objMsg = CreateObject("CDO.Message")
 
@@ -136,6 +139,7 @@ Else
   Exit_Code=1
 End If
 
+WriteLogFile("done")
 WScript.Quit(Exit_Code)
 
 '******************************************************************************
@@ -163,5 +167,41 @@ Sub WriteEventLog(strMessage)
     		strError &_
     		Chr(34),0,True
 
+End Sub
+
+Sub WriteLogFile(strMsgType)
+  'Write Status message to logfile
+  Dim objFSOLog, LogFile, f, MsgText
+  
+  strMsgType = lcase(strMsgType)
+  LogFile = "d:\temp\PDFMailer.log"
+  
+  Set objFSOLog = CreateObject("Scripting.FileSystemObject")
+  Set f = objFSOLog.OpenTextFile(LogFile, ForAppending, True)
+  If Err.Number <> 0 then
+    WriteEventLog("LogFile " & LogFile & " konnte nicht geöffnet werden!")
+    Exit Sub
+  End If
+  
+  Select Case strMsgType
+  	Case "start"
+  		MsgText = Date & " - " & Time & AppTitle & " Start --------------" & vbCrLf &_
+  		              "                        Attachment: " & Chr(34) & attachment & Chr(34) &_
+  		                                     " Recipient: " & Chr(34) & recipient & Chr(34)
+  	Case "done"
+  	        MsgText = Date & " - " & Time & AppTitle & " Done ---------------" & vbCrLf
+  end select
+  
+  f.writeline MsgText
+  If Err.Number <> 0 then
+    WriteEventLog("Fehler beim schreiben in das LogFile " & LogFile & " !")
+    f.Close
+    objFSOLog = nothing
+    Exit Sub
+  End If
+  
+  f.Close
+  set objFSOLog = nothing
+  
 End Sub
 
